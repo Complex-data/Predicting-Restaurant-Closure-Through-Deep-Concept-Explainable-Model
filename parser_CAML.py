@@ -14,19 +14,19 @@ def build_parser():
     parser = argparse.ArgumentParser()
     ps = parser.add_argument
     ps("--dataset", dest="dataset", type=str,
-        default='A2_Amazon_Instant_Video', help="Which dataset?")
+        default='dianping', help="Which dataset?")
     ps("--rnn_type", dest="rnn_type", type=str, metavar='<str>',
         default='RAW_MSE_CAML_FN_FM', help="Compositional model name")
     ps("--opt", dest="opt", type=str, metavar='<str>', default='Adam',
        help="Optimization algorithm)")
     ps("--emb_size", dest="emb_size", type=int, metavar='<int>',
-       default=50, help="Embeddings dimension (default=50)")
+       default=30, help="Embeddings dimension (default=50)")
     ps("--rnn_size", dest="rnn_size", type=int, metavar='<int>',
-       default=50, help="model-specific dimension. (default=50)")
+       default=30, help="model-specific dimension. (default=50)")
     ps("--rnn_dim", dest="rnn_dim", type=int, metavar='<int>',
-       default=50, help="model-specific dimension. (default=50)")
+       default=30, help="model-specific dimension. (default=50)")
     ps("--latent_size", dest="latent_size", type=int, metavar='<int>',
-       default=50, help="latent factor dimension for user/items. (default=50)")
+       default=30, help="latent factor dimension for user/items. (default=50)")
     ps("--key_word_lambda", dest="key_word_lambda", type=float, metavar='<float>',
         default=1.0, help="The key word generation loss weight.")
     ps("--use_lower", dest="use_lower", type=int, metavar='<int>',
@@ -60,7 +60,7 @@ def build_parser():
     ps('--gpu', dest='gpu', type=int, metavar='<int>',
        default=0, help="Specify which GPU to use (default=0)")
     ps("--hdim", dest='hdim', type=int, metavar='<int>',
-       default=50, help="Hidden layer size (default=50)")
+       default=30, help="Hidden layer size (default=50)")
     ps("--lr", dest='learn_rate', type=float,
        metavar='<float>', default=1E-3, help="Learning Rate")
     ps("--clip_norm", dest='clip_norm', type=int,
@@ -92,11 +92,15 @@ def build_parser():
     ps("--masking", dest="masking", type=int, metavar='<int>',
        default=1, help="Use masking and padding")
     ps("--concept", dest="concept", type=int, metavar='<int>',
-       default=0, help="Use concept correlated components or not")
+       default=1, help="Use concept correlated components or not")
     ps("--len_penalty", dest="len_penalty", type=int, metavar='<int>',
        default=2, help="Regularization type for length balancing in beam search")
     ps("--implicit", dest="implicit", type=int, metavar='<int>',
        default=0, help="Use implicit factor or not")
+    ps("--category", dest="category", type=int, metavar='<int>',
+       default=0, help="Use item category factor or not")
+    ps("--heterougenous", dest="heterougenous", type=int, metavar='<int>',
+       default=0, help="Use item heterougenous factor or not")
     ps("--att_reuse", dest="att_reuse", type=int, metavar='<int>',
        default=0, help="Re-use attention or not")
     ps('--tensorboard', action='store_true', help='To use tensorboard or not (may not work)')
@@ -112,10 +116,22 @@ def build_parser():
        metavar='<int>', default=1, help='To translate project or not')
     ps('--eval_train', dest='eval_train', type=int,
        metavar='<int>', default=1, help='To eval on train set or not')
-    #ps('--data_link', dest='data_link', type=str, default='./data/City_7/new_4_City_7',
-    #ps('--data_link', dest='data_link', type=str, default='./data/City_4/clean_City_4',
-    #ps('--data_link', dest='data_link', type=str, default='./data/City_10',
-    ps('--data_link', dest='data_link', type=str, default='./data/City_10/clean_City_10',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_4',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_7/new_5_City_7',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_2/clean_City_2',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_2/clean_4_City_2',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_2/clean_5_City_2',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_1/clean_City_1',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_1/clean_3_City_1',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_1/clean_4_City_1',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_1/clean_5_City_1',
+    #ps('--data_link', dest='data_link', type=str, default='./data/all_cities',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_4/clean_3_City_4',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_4/clean_4_City_4',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_5/clean_City_5',
+    ps('--data_link', dest='data_link', type=str, default='./data/City_4/clean_n_a_City_4',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_10/clean_City_10',
+    #ps('--data_link', dest='data_link', type=str, default='./data/City_4/clean_new_6_City_4',
     #ps('--data_link', dest='data_link', type=str, default='./data/movie_100',
         help='data link')
     ps('--att_type', dest='att_type', type=str, default='SOFT',
@@ -127,7 +143,7 @@ def build_parser():
     ps('--num_class', dest='num_class', type=int,
        default=2, help='self explainatory..(not used for recommendation)')
     ps('--all_dropout', action='store_true',
-       default=False, help='to dropout the embedding layer or not')
+       default=True, help='to dropout the embedding layer or not')
     ps("--qmax", dest="qmax", type=int, metavar='<int>',
        default=40, help="Max Length of Question (not used in rec)")
     ps("--char_max", dest="char_max", type=int, metavar='<int>',
@@ -149,7 +165,7 @@ def build_parser():
     ps("--temperature", dest="temperature", type=float,
       metavar='<float>', default=0.5, help="Temperature")
     ps("--num_inter_proj", dest="num_inter_proj", type=int,
-       metavar='<int>', default=1, help="Number of inter projection layers")
+       metavar='<int>', default=6, help="Number of inter projection layers")
     ps("--num_com", dest="num_com", type=int,
        metavar='<int>', default=1, help="Number of compare layers")
     ps("--show_att", dest="show_att", type=int,
@@ -162,26 +178,27 @@ def build_parser():
        metavar='<str>', default='xavier', help="Init Type")
     ps("--decay_lr", dest="decay_lr", type=float,
        metavar='<float>', default=0, help="Decay Learning Rate")
-    ps("--decay_steps", dest="decay_steps", type=float,
+    ps("--decay_steps", dest="decay_steps", type=float, 
        metavar='<float>', default=0, help="Decay Steps (manual)")
     ps("--decay_stairs", dest="decay_stairs", type=float,
        metavar='<float>', default=1, help="To use staircase or not")
     ps('--emb_type', dest='emb_type', type=str,
        default='glove', help='embedding type')
     ps('--log_dir', dest='log_dir', type=str,
-       default='City_10_logs', help='log directory')
+       default='City_1_logs', help='log directory')
     ps('--gen_dir', dest='gen_dir', type=str,
-       default='City_10_logs', help='gen rouge file directory')
+       default='City_1_logs', help='gen rouge file directory')
     ps('--ref_dir', dest='gen_dir', type=str,
-       default='City_10_logs', help='ref rouge file directory')
+       default='City_1_logs', help='ref rouge file directory')
     ps('--model', dest='model', type=str,
-       default='City_10_logs', help='model path')
+       default='City_1_logs', help='model path')
     ps('--gen_true_dir', dest='gen_true_dir', type=str,
-       default='City_10_logs', help='gen true rouge file directory')
+       default='City_1_logs/explanation', help='gen true rouge file directory')
     ps("--beam_size", dest="beam_size", type=int, metavar='<int>',
        default=4, help="beam search size")
     ps("--beam_number", dest="beam_number", type=int, metavar='<int>',
        default=4, help="beam search number")
     ps('--view_output', dest='view_output', type=str,
-       default='City_10_logs', help='view output')
+       default='City_1_logs/explanation', help='view output')
+       #default='all_cities_logs/explanation', help='view output')
     return parser

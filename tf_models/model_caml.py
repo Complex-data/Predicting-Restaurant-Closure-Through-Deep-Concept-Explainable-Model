@@ -21,6 +21,7 @@ from collections import Counter
 import operator
 import timeit
 import time
+import math
 
 import datetime
 from keras.preprocessing import sequence
@@ -50,7 +51,9 @@ class Model:
     I have removed them.
     '''
     def __init__(self, vocab_size, args, char_vocab=0, pos_vocab=0,
-                    mode='RANK', num_user=0, num_item=0):
+                    mode='RANK', num_user=0, num_item=0, num_category=0,
+                    num_AP=0, num_CD=0, num_Com=0, num_density=0, num_Environment=0,
+                    num_JQ=0, num_NE=0, num_PP=0, num_Rating=0, num_Service=0, num_Taste=0, num_TD=0):
         self.vocab_size = vocab_size
         self.char_vocab = char_vocab
         self.pos_vocab = pos_vocab
@@ -67,6 +70,25 @@ class Model:
         # For interaction data only (disabled and removed from this repo)
         self.num_user = num_user
         self.num_item = num_item
+        if self.args.category==1:
+            self.num_category = num_category
+
+		#添加异构信息
+        if self.args.heterougenous==1:
+            self.num_AP = num_AP
+            self.num_CD = num_CD
+            self.num_Com = num_Com
+            self.num_density = num_density
+            self.num_Environment = num_Environment
+            self.num_JQ = num_JQ
+            self.num_NE = num_NE
+            self.num_PP = num_PP
+            self.num_Rating = num_Rating
+            self.num_Service = num_Service
+            self.num_Taste = num_Taste
+            self.num_TD = num_TD
+        
+        
         print('Creating Model in [{}] mode'.format(self.mode))
         self.feat_prop = None
         if(self.args.init_type=='xavier'):
@@ -86,6 +108,10 @@ class Model:
         self.temp = []
         self.att1, self.att2 = [],[]
         self.build_graph()
+
+    #sigmod函数
+    def sigmoid(x):
+        return 1.0/(1+math.e**(-x))
 
     def _get_pair_feed_dict(self, data, mode='training', lr=None):
         """ This is for pairwise ranking and not relevant to this repo.
@@ -168,7 +194,27 @@ class Model:
         if self.args.implicit == 1:
             feed_dict[self.user_id] = data[self.imap['user_id']]
             feed_dict[self.item_id] = data[self.imap['item_id']]
-        #if('TNET' in self.args.rnn_type):
+        
+        #添加category
+        if self.args.category == 1:
+            feed_dict[self.category_id] = data[self.imap['category_id']]
+
+        #添加异构信息
+        if self.args.heterougenous == 1:
+            feed_dict[self.AP_id] = data[self.imap['AP_id']]
+            feed_dict[self.CD_id] = data[self.imap['CD_id']]
+            feed_dict[self.Com_id] = data[self.imap['Com_id']]
+            feed_dict[self.density_id] = data[self.imap['density_id']]
+            feed_dict[self.Environment_id] = data[self.imap['Environment_id']]
+            feed_dict[self.JQ_id] = data[self.imap['JQ_id']]
+            feed_dict[self.NE_id] = data[self.imap['NE_id']]
+            feed_dict[self.PP_id] = data[self.imap['PP_id']]
+            feed_dict[self.Rating_id] = data[self.imap['Rating_id']]
+            feed_dict[self.Service_id] = data[self.imap['Service_id']]
+            feed_dict[self.Taste_id] = data[self.imap['Taste_id']]
+            feed_dict[self.TD_id] = data[self.imap['TD_id']]
+
+		#if('TNET' in self.args.rnn_type):
         #    # Use TransNet
         #    feed_dict[self.trans_inputs] = data[self.imap['trans_inputs']]
         #    feed_dict[self.trans_len] = data[self.imap['trans_len']]
@@ -253,6 +299,13 @@ class Model:
             q1_embed = tf.nn.dropout(q1_embed, self.dropout)
             q2_embed = tf.nn.dropout(q2_embed, self.dropout)
 
+        #print('=======translate_proj:=======')
+        #print(q1_embed)q1_embed:batch_size * damx * dim
+        #print(q2_embed)q2_embed:batch_size * damx * dim
+        self.q1_embed = q1_embed
+        self.q2_embed = q2_embed
+        
+        
         representation = None
         att1, att2 = None, None
         if(force_model is not None):
@@ -287,8 +340,12 @@ class Model:
         print("===============================================")
 
         print (q1_output.get_shape(), q2_output.get_shape())
+        self.before_q1_output = q1_output
+        self.before_q2_output = q2_output
         # activate MPCN model
-        q1_output, q2_output,max_att_row, max_att_col, a1, a2, max_before_input_a, max_input_a, sa1 = multi_pointer_coattention_networks(
+        # input result:q1_output/q2_outout shape: batch_size * dmax * dim
+        # output result:q1_output/q2_outout shape: batch_size * dim
+        q1_output, q2_output, max_row, max_col, max_att_row, max_att_col, a1, a2, sa1, sa2, swa1, swa2, q1_mask, q2_mask, review_concept1, max_before_input_a, max_input_a = multi_pointer_coattention_networks(
                                                 self,
                                                 q1_output, q2_output,
                                                 q1_len, q2_len,
@@ -296,11 +353,25 @@ class Model:
                                                 o1_len, o2_len,
                                                 rnn_type=self.args.rnn_type,
                                                 reuse=reuse)
+        self.coattention_q1_output = q1_output
+        self.coattention_q2_output = q2_output
+        self.coattention_q1_len = q1_len
+        self.coattention_q2_len = q2_len
+        self.max_row = max_row
+        self.max_col = max_col
+        self.max_att_row = max_att_row
+        self.max_att_col = max_att_col
         self.a1 = a1
         self.a2 = a2
         self.sa1 = sa1
+        self.sa2 = sa2
+        self.swa1 = swa1
+        self.swa2 = swa2
+        self.q1_mask = q1_mask
+        self.q2_mask = q2_mask
         self.max_before_input_a = max_before_input_a
         self.max_input_a = max_input_a
+        self.review_concept1 = review_concept1
         try:
             # For summary statistics
             self.max_norm = tf.reduce_max(tf.norm(q1_output,
@@ -394,6 +465,25 @@ class Model:
         (should be self-explanatory)
         """
         print("Rec Output")
+        #添加 category
+        if self.args.category == 1:
+           q2_output = tf.concat([q2_output, self.category_batch], 1)
+
+        #添加异构信息
+        if self.args.heterougenous == 1:
+           q2_output = tf.concat([q2_output, self.AP_batch], 1)
+           q2_output = tf.concat([q2_output, self.CD_batch], 1)
+           q2_output = tf.concat([q2_output, self.Com_batch], 1)
+           q2_output = tf.concat([q2_output, self.density_batch], 1)
+           q2_output = tf.concat([q2_output, self.Environment_batch], 1)
+           q2_output = tf.concat([q2_output, self.JQ_batch], 1)
+           q2_output = tf.concat([q2_output, self.NE_batch], 1)
+           q2_output = tf.concat([q2_output, self.PP_batch], 1)
+           q2_output = tf.concat([q2_output, self.Rating_batch], 1)
+           q2_output = tf.concat([q2_output, self.Service_batch], 1)
+           q2_output = tf.concat([q2_output, self.Taste_batch], 1)
+           q2_output = tf.concat([q2_output, self.TD_batch], 1)
+
         print(q1_output)
         dim = q1_output.get_shape().as_list()[1]
         with tf.variable_scope('rec_out', reuse=reuse) as scope:
@@ -427,6 +517,15 @@ class Model:
                                     name=name,
                                     initializer=self.initializer,
                                     reshape=False)
+				
+                '''output = tf.concat([q1_output, q2_output,
+                                q1_output * q2_output], 1)
+                output = ffn(output, self.args.hdim,
+                            self.initializer,
+                            name='ffn', reuse=None,
+                            dropout=self.dropout,
+                            activation=tf.nn.relu, num_layers=4)
+                output = linear(output, 1, self.initializer)'''
 
             if('SIG' in self.args.rnn_type):
                 output = tf.nn.sigmoid(output)
@@ -503,6 +602,8 @@ class Model:
                 state = tf.nn.tanh(r_embed + tf.matmul(q1_output, self.review_user_mapping) + tf.matmul(q2_output, self.review_item_mapping) + self.review_bias)
             else:
                 state = tf.nn.tanh(tf.matmul(q1_output, self.review_user_mapping) + tf.matmul(q2_output, self.review_item_mapping) + self.review_bias)
+            print('===============state=================')
+            print(state)
 
             self.beam_batch = self.args.beam_size * self.args.batch_size
             self.beam_batch_max = self.args.beam_size * self.args.beam_size * self.args.batch_size
@@ -757,8 +858,6 @@ class Model:
         self.q1_mask = tf.cast(self.q1_inputs, tf.bool)	#cast数据类型转换
         self.q2_mask = tf.cast(self.q2_inputs, tf.bool)
         self.q3_mask = tf.cast(self.q3_inputs, tf.bool)
-        print("!!!!!!!!!!!q1_inputs!!!!!!!!!!!!!!")
-        print(self.q1_inputs)
 
         def make_hmasks(inputs, smax):
             # Hierarchical Masks
@@ -952,6 +1051,35 @@ class Model:
                     self.user_id = tf.placeholder(tf.int32, shape=[None])
                 with tf.name_scope('item_id'):
                     self.item_id = tf.placeholder(tf.int32, shape=[None])
+            if self.args.category == 1:
+                with tf.name_scope('category_id'):
+                    self.category_id = tf.placeholder(tf.int32, shape=[None])
+            #添加异构信息
+            if self.args.heterougenous == 1:
+                with tf.name_scope('AP_id'):
+                    self.AP_id = tf.placeholder(tf.int32, shape=[None])
+                with tf.name_scope('CD_id'):
+                    self.CD_id = tf.placeholder(tf.int32, shape=[None])
+                with tf.name_scope('Com_id'):
+                    self.Com_id = tf.placeholder(tf.int32, shape=[None])
+                with tf.name_scope('density_id'):
+                    self.density_id = tf.placeholder(tf.int32, shape=[None])
+                with tf.name_scope('Environment_id'):
+                    self.Environment_id = tf.placeholder(tf.int32, shape=[None])
+                with tf.name_scope('JQ_id'):
+                    self.JQ_id = tf.placeholder(tf.int32, shape=[None])
+                with tf.name_scope('NE_id'):
+                    self.NE_id = tf.placeholder(tf.int32, shape=[None])
+                with tf.name_scope('PP_id'):
+                    self.PP_id = tf.placeholder(tf.int32, shape=[None])
+                with tf.name_scope('Rating_id'):
+                    self.Rating_id = tf.placeholder(tf.int32, shape=[None])
+                with tf.name_scope('Service_id'):
+                    self.Service_id = tf.placeholder(tf.int32, shape=[None])
+                with tf.name_scope('Taste_id'):
+                    self.Taste_id = tf.placeholder(tf.int32, shape=[None])
+                with tf.name_scope('TD_id'):
+                    self.TD_id = tf.placeholder(tf.int32, shape=[None])
 
             with tf.name_scope('gen_len'):
                 self.gen_len = tf.placeholder(tf.int32, shape=[None])
@@ -999,7 +1127,6 @@ class Model:
                                         [self.num_user,
                                         self.args.latent_size],
                                         initializer=self.initializer)
-
                     self.item_embeddings = tf.get_variable('item_embedding',
                                         [self.num_item,
                                         self.args.latent_size],
@@ -1010,6 +1137,101 @@ class Model:
 
                     self.item_batch = tf.nn.embedding_lookup(self.item_embeddings,
                                                 self.item_id)
+                #添加category
+                if self.args.category == 1:
+                    self.category_embeddings = tf.get_variable('category_embedding',
+                                        [self.num_category,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+
+                    self.category_batch = tf.nn.embedding_lookup(self.category_embeddings,
+                                                self.category_id)
+
+                #添加异构信息
+                if self.args.heterougenous == 1:
+                    self.AP_embeddings = tf.get_variable('AP_embedding',
+                                        [self.num_AP,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.AP_batch = tf.nn.embedding_lookup(self.AP_embeddings,
+                                                self.AP_id)
+
+                    self.CD_embeddings = tf.get_variable('CD_embedding',
+                                        [self.num_CD,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.CD_batch = tf.nn.embedding_lookup(self.CD_embeddings,
+                                                self.CD_id)
+
+                    self.Com_embeddings = tf.get_variable('Com_embedding',
+                                        [self.num_Com,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.Com_batch = tf.nn.embedding_lookup(self.Com_embeddings,
+                                                self.Com_id)
+
+                    self.density_embeddings = tf.get_variable('density_embedding',
+                                        [self.num_density,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.density_batch = tf.nn.embedding_lookup(self.density_embeddings,
+                                                self.density_id)
+
+                    self.Environment_embeddings = tf.get_variable('Environment_embedding',
+                                        [self.num_Environment,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.Environment_batch = tf.nn.embedding_lookup(self.Environment_embeddings,
+                                                self.Environment_id)
+
+                    self.JQ_embeddings = tf.get_variable('JQ_embedding',
+                                        [self.num_JQ,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.JQ_batch = tf.nn.embedding_lookup(self.JQ_embeddings,
+                                                self.JQ_id)
+
+                    self.NE_embeddings = tf.get_variable('NE_embedding',
+                                        [self.num_NE,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.NE_batch = tf.nn.embedding_lookup(self.NE_embeddings,
+                                                self.NE_id)
+
+                    self.PP_embeddings = tf.get_variable('PP_embedding',
+                                        [self.num_PP,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.PP_batch = tf.nn.embedding_lookup(self.PP_embeddings,
+                                                self.PP_id)
+
+                    self.Rating_embeddings = tf.get_variable('Rating_embedding',
+                                        [self.num_Rating,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.Rating_batch = tf.nn.embedding_lookup(self.Rating_embeddings,
+                                                self.Rating_id)
+
+                    self.Service_embeddings = tf.get_variable('Service_embedding',
+                                        [self.num_Service,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.Service_batch = tf.nn.embedding_lookup(self.Service_embeddings,
+                                                self.Service_id)
+
+                    self.Taste_embeddings = tf.get_variable('Taste_embedding',
+                                        [self.num_Taste,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.Taste_batch = tf.nn.embedding_lookup(self.Taste_embeddings,
+                                                self.Taste_id)
+
+                    self.TD_embeddings = tf.get_variable('TD_embedding',
+                                        [self.num_TD,
+                                        self.args.latent_size],
+                                        initializer=self.initializer)
+                    self.TD_batch = tf.nn.embedding_lookup(self.TD_embeddings,
+                                                self.TD_id)
 
             self.i1_embed, self.i2_embed, self.i3_embed = None, None, None
 
@@ -1043,7 +1265,6 @@ class Model:
 
             print (self.q1_embed.get_shape(), self.q2_embed.get_shape())
              
-            #self.output_pos, _, _, _ = self._joint_representation(
             q1_output, q2_output, _, _ = self._joint_representation(
                                         self.q1_embed, self.q2_embed,
                                         q1_len, q2_len,
@@ -1120,20 +1341,47 @@ class Model:
                                                     labels=tf.stop_gradient(target))
                         self.cost = tf.reduce_mean(ce)
                     elif('RAW_MSE' in self.args.rnn_type):
-                        '''target = self.soft_labels
-                        target = tf.argmax(target, 1)
-                        target = tf.expand_dims(target, 1)
-                        target = tf.cast(target, tf.float32)
-                     
+                        #target = self.soft_labels
+                        #target = tf.argmax(target, 1)
+                        #target = tf.expand_dims(target, 1)
+                        #target = tf.expand_dims(self.sig_labels, 1)
+                        
+                        '''target = tf.cast(target, tf.float32)
+                        self.target = target
                         ce = tf.nn.sigmoid_cross_entropy_with_logits(
                                                 logits=self.output_pos,
                                                 labels=target)
                         self.cost = tf.reduce_mean(ce)'''
-                        sig = self.output_pos
+						
+                        '''新的二分类交叉熵损失函数'''
+                        #将真实值yt，预测结果yp分别经过sigmod处理
+                        yt = self.sig_labels
+                        yp = tf.sigmoid(self.output_pos)
+                        self.output_pos = yp
+                        #交叉熵损失值计算
+                        one_shape = tf.shape(yt)
+                        one_tensor = tf.ones(one_shape,dtype=tf.float32)
+                        
+                        x1 = tf.multiply(yt,tf.log(yp))
+
+                        x2 = tf.subtract(one_tensor,yt)
+                        x3 = tf.log(tf.subtract(one_tensor,yp))
+                        x4 = tf.multiply(x2,x3)
+                        x5 = tf.add(x1,x4)
+
+                        zero_x5_shape = tf.shape(x5)
+                        zero_tensor = tf.zeros(zero_x5_shape,dtype=tf.float32)
+                        ce = tf.subtract(zero_tensor,x5)
+                        self.cost = tf.reduce_mean(ce)
+                        #新增的修改损失函数
+                        #self.cost = tf.exp(self.cost)
+
+
+                        '''sig = self.output_pos
                         target = tf.expand_dims(self.sig_labels, 1)
-                        self.target = target
+                     
                         self.cost = tf.reduce_mean(
-                                    tf.square(tf.subtract(target, sig)))
+                                    tf.square(tf.subtract(target, sig)))'''
                     elif('LOG' in self.args.rnn_type):
                         # BPR loss for ranking
                         self.cost = tf.reduce_mean(
@@ -1174,8 +1422,9 @@ class Model:
                         if self.args.word_gumbel == 1:
                             if (self.args.key_word_lambda != 0.0) and (self.args.concept == 1):
                                 self.gen_loss += self.args.key_word_lambda * self.key_word_loss
-                        #注释这句，不考虑self.gen_loss
+                        #注释掉这句，就忽略了gen_loss
                         self.cost += self.args.gen_lambda * self.gen_loss
+                        #self.cost += tf.exp(-(self.args.gen_lambda * self.gen_loss))
 
                     self.task_cost = self.cost
 

@@ -244,10 +244,17 @@ def co_attention(input_a, input_b, reuse=False, name='', att_type='SOFT',
                                 dropout=None,
                                 num_layers=transform_layers,
                                 use_mode='None')
+
+    print('---------------------------------------------shape input_a----------------------------------------------------------------------')
+    print(input_a)
     before_input_a = input_a
+	#修改
     '''with tf.variable_scope('layer_norm_{}'.format(name)) as f:
         input_a = tf.contrib.layers.layer_norm(input_a, reuse=reuse, trainable=True, scope=f)
         input_b = tf.contrib.layers.layer_norm(input_b, reuse=True, trainable=True, scope=f)'''
+
+    print('---------------------------------------------modified shape input_a----------------------------------------------------------------------')
+    print(input_a)
 
     if(att_type == 'BILINEAR'):
         # Bilinear Attention
@@ -291,7 +298,7 @@ def co_attention(input_a, input_b, reuse=False, name='', att_type='SOFT',
         elif(att_type == 'MD'):
             # Multi-dimensional Attention
             sim = projection_layer(output, k,
-                                    name='co_att', reuse=reuse,
+                                    name='co_att', reuse=tf.AUTO_REUSE,
                                     activation=tf.nn.relu)
             feat = tf.reshape(sim, [-1, k])
             sim_matrix = tf.contrib.layers.fully_connected(
@@ -313,8 +320,6 @@ def co_attention(input_a, input_b, reuse=False, name='', att_type='SOFT',
     if(dist_bias>0):
         print("Adding Distance Bias..")
         y += dist_biases
-
-
     if(pooling=='MATRIX'):
         # This is the alignment based attention
         # Note: This is not used in the MPCN model.
@@ -346,25 +351,29 @@ def co_attention(input_a, input_b, reuse=False, name='', att_type='SOFT',
                 y = -1E+30 * (1-mat_mask) + y            
             att_row = tf.reduce_max(y, 1)
             att_col = tf.reduce_max(y, 2)
-            m_att_row = tf.argmax(y, 1)
-            m_att_col = tf.argmax(y, 2)
+            max_att_row = att_row
+            max_att_col = att_col
         elif(pooling=='MIN'):
             if(mask_a is not None and mask_b is not None):
                 y = 1E+30 * (1-mat_mask) + y
             att_row = tf.reduce_min(y, 1)
             att_col = tf.reduce_min(y, 2)
+            max_att_row = att_row
+            max_att_col = att_col
         elif(pooling=='SUM'):
             if(mask_a is not None and mask_b is not None):
                 y = y * mat_mask
             att_row = tf.reduce_sum(y, 1)
             att_col = tf.reduce_sum(y, 2)
+            max_att_row = att_row
+            max_att_col = att_col
         elif(pooling=='MEAN'):
             if(mask_a is not None and mask_b is not None):
                 y = y * mat_mask
             att_row = tf.reduce_mean(y, 1)
             att_col = tf.reduce_mean(y, 2)
-            m_att_row = att_row
-            m_att_col = att_col
+            max_att_row = att_row
+            max_att_col = att_col
 
         if(mask_a is not None and mask_b is not None):
             att_row = -1E+30 * (1-mask_b) + att_row
@@ -402,7 +411,7 @@ def co_attention(input_a, input_b, reuse=False, name='', att_type='SOFT',
         final_a = tf.squeeze(final_a, 2)
         final_b = tf.squeeze(final_b, 2)
 
-    return final_a, final_b, _a1, _a2, _sa1, _sa2, y, m_att_row, m_att_col, before_input_a, input_a
+    return final_a, final_b, _a1, _a2, _sa1, _sa2, y, max_att_row, max_att_col, att_row, att_col, before_input_a, input_a
 
 def sample_gumbel(shape, eps=1e-20):
     U = tf.random_uniform(shape, minval=0, maxval=1)

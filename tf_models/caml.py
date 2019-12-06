@@ -89,13 +89,13 @@ def multi_pointer_coattention_networks(self,
             #else:
                 tmp_reuse = True
 
-        _q1, _q2, a1, a2, sa1, sa2, afm, max_att_row, max_att_col, max_before_input_a, max_input_a = co_attention(
+        _q1, _q2, a1, a2, sa1, sa2, afm, max_row, max_col, max_att_row, max_att_col, max_before_input_a, max_input_a= co_attention(
                 q1_output, q2_output, att_type=self.args.att_type,
-                pooling='MEAN', mask_diag=False,
+                pooling='MAX', mask_diag=False,
                 kernel_initializer=self.initializer,
                 activation=None, dropout=self.dropout,
                 seq_lens=None, transform_layers=self.args.num_inter_proj,
-                proj_activation=tf.nn.relu, name=name,
+                proj_activation=tf.nn.relu6, name=name,
                 reuse=tmp_reuse, gumbel=True,
                 hard=1, model_type=self.args.rnn_type,
                 mask_a=q1_mask, mask_b=q2_mask
@@ -174,13 +174,13 @@ def multi_pointer_coattention_networks(self,
         else:
             word_hard = False
 
-        z1, z2, wa1, wa2, swa1, swa2, wm, mean_att_row, mean_att_col, before_input_a, input_a = co_attention(
+        z1, z2, wa1, wa2, swa1, swa2, wm, mean_row, mean_col, mean_att_row, mean_att_col, before_input_a, input_a = co_attention(
                 _o1, _o2, att_type=self.args.att_type,
                 pooling=self.args.word_pooling, mask_diag=False,
                 kernel_initializer=self.initializer, activation=None,
                 dropout=self.dropout, seq_lens=None,
                 transform_layers=self.args.num_inter_proj,
-                proj_activation=tf.nn.relu, name=name,
+                proj_activation=tf.nn.relu6, name=name,
                 reuse=tmp_reuse, model_type=self.args.rnn_type,
                 hard=1, gumbel=word_hard,
                 mask_a=o1_mask, mask_b=o2_mask
@@ -237,4 +237,4 @@ def multi_pointer_coattention_networks(self,
     print(q1_output)
     print(q2_output)
     print("================================================")
-    return q1_output, q2_output, max_att_row, max_att_col, a1, a2, max_before_input_a, max_input_a, sa1
+    return q1_output, q2_output, max_row, max_col, max_att_row, max_att_col, a1, a2, sa1, sa2, swa1, swa2, q1_mask, q2_mask, review_concept1,max_before_input_a ,max_input_a

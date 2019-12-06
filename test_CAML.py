@@ -35,6 +35,7 @@ import sys
 from nltk.corpus import stopwords
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import roc_auc_score
 from sklearn.metrics import f1_score
 from scipy.stats import pearsonr
 from scipy.stats import spearmanr
@@ -82,7 +83,7 @@ class CFExperiment(Experiment):
         self.max_val = 5
         self.min_val = 1
 
-        self.show_metrics = ['MSE','RMSE','MAE', 'MSE_int','RMSE_int','MAE_int', 'Gen_loss', 'All_loss', 'Gen_loss', 'F1', 'ACC', 'Review_acc']
+        self.show_metrics = ['MSE','RMSE','MAE', 'MSE_int','RMSE_int','MAE_int', 'Gen_loss', 'All_loss', 'Gen_loss', 'F1', 'ACC', 'Review_acc','AUC']
         #self.eval_primary = 'RMSE'
         self.eval_primary = 'All_loss'
         # For hierarchical setting
@@ -103,7 +104,7 @@ class CFExperiment(Experiment):
                             #char_vocab=len(self.char_index),
                             #pos_vocab=len(self.pos_index),
                             mode='HREC', num_item=self.num_items,
-                            num_user=self.num_users)
+                            num_user=self.num_users, num_category=self.num_categories)
 
         self._print_model_stats()
         self.hyp_str = self.model_name + '_' + self.uuid
@@ -138,15 +139,59 @@ class CFExperiment(Experiment):
         user = [x[0] for x in data]
         items = [x[1] for x in data]
         labels = [x[2] for x in data]
+        if self.args.category==1 and self.args.heterougenous==1:
+            category = [x[3] for x in data]
+			#添加异构信
+            AP = [x[4] for x in data]
+            CD = [x[5] for x in data]
+            Com = [x[6] for x in data]
+            density = [x[7] for x in data]
+            Environment = [x[8] for x in data]
+            JQ = [x[9] for x in data]
+            NE = [x[10] for x in data]
+            PP = [x[11] for x in data]
+            Rating = [x[12] for x in data]
+            Service = [x[13] for x in data]
+            Taste = [x[14] for x in data]
+            TD = [x[15] for x in data]
+
+        elif self.args.category==1 and self.args.heterougenous==0:
+            category = [x[3] for x in data]
+
+        elif self.args.category==0 and self.args.heterougenous==1:
+            AP = [x[3] for x in data]
+            CD = [x[4] for x in data]
+            Com = [x[5] for x in data]
+            density = [x[6] for x in data]
+            Environment = [x[7] for x in data]
+            JQ = [x[8] for x in data]
+            NE = [x[9] for x in data]
+            PP = [x[10] for x in data]
+            Rating = [x[11] for x in data]
+            Service = [x[12] for x in data]
+            Taste = [x[13] for x in data]
+            TD = [x[14] for x in data]
+
 
         #prep generation outputs
         if reviews != None:
-
+            '''预处理评论文本，将其剪切、填充到统一长度gmax
+            返回gen_outputs是处理后的review，gen_len处理后的每条review长度
+            '''
             gen_outputs, gen_len = prep_data_list(reviews, self.args.gmax)
 
         output = []
         for i in range(len(user)):
-            output.append([user[i], items[i], labels[i], gen_outputs[i], gen_len[i]])
+            if self.args.category==1 and self.args.heterougenous==1:
+                output.append([user[i], items[i], labels[i], category[i], AP[i], CD[i], Com[i], density[i], Environment[i],
+                           JQ[i], NE[i], PP[i], Rating[i], Service[i], Taste[i], TD[i], gen_outputs[i], gen_len[i]])
+            elif self.args.category==1 and self.args.heterougenous==0:
+                output.append([user[i], items[i], labels[i], category[i], gen_outputs[i], gen_len[i]])
+            elif self.args.category==0 and self.args.heterougenous==1:
+                output.append([user[i], items[i], labels[i], AP[i], CD[i], Com[i], density[i], Environment[i],
+                           JQ[i], NE[i], PP[i], Rating[i], Service[i], Taste[i], TD[i], gen_outputs[i], gen_len[i]])
+            elif self.args.category==0 and self.args.heterougenous==0:
+                output.append([user[i], items[i], labels[i], gen_outputs[i], gen_len[i]])
 
         return output
 
@@ -155,11 +200,51 @@ class CFExperiment(Experiment):
         user = [x[0] for x in data]
         items = [x[1] for x in data]
         labels = [x[2] for x in data]
+        #添加category
+        if self.args.category==1 and self.args.heterougenous==1:
+            category = [x[3] for x in data]
+			#添加异构信
+            AP = [x[4] for x in data]
+            CD = [x[5] for x in data]
+            Com = [x[6] for x in data]
+            density = [x[7] for x in data]
+            Environment = [x[8] for x in data]
+            JQ = [x[9] for x in data]
+            NE = [x[10] for x in data]
+            PP = [x[11] for x in data]
+            Rating = [x[12] for x in data]
+            Service = [x[13] for x in data]
+            Taste = [x[14] for x in data]
+            TD = [x[15] for x in data]
+
+            gen_outputs = [x[16] for x in data]
+            gen_len = [x[17] for x in data]
+        elif self.args.category==1 and self.args.heterougenous==0:
+            category = [x[3] for x in data]
+            gen_outputs = [x[4] for x in data]
+            gen_len = [x[5] for x in data]
+        elif self.args.category==0 and self.args.heterougenous==1:
+            AP = [x[3] for x in data]
+            CD = [x[4] for x in data]
+            Com = [x[5] for x in data]
+            density = [x[6] for x in data]
+            Environment = [x[7] for x in data]
+            JQ = [x[8] for x in data]
+            NE = [x[9] for x in data]
+            PP = [x[10] for x in data]
+            Rating = [x[11] for x in data]
+            Service = [x[12] for x in data]
+            Taste = [x[13] for x in data]
+            TD = [x[14] for x in data]
+            gen_outputs = [x[15] for x in data]
+            gen_len = [x[16] for x in data]
+        elif self.args.category==0 and self.args.heterougenous==0:
+            gen_outputs = [x[3] for x in data]
+            gen_len = [x[4] for x in data]
 
         # Raw user-item ids
         user_idx = user
         item_idx = items
-
 
         user_list = []
         item_list = []
@@ -169,8 +254,8 @@ class CFExperiment(Experiment):
         item_len = []
         user_concept_len = []
         item_concept_len = []
-        #user_dict = {}
-        for i in range(len(user)):
+
+        for i in range(len(items)):
             user_reviews = []
             item_reviews = []
             user_concepts = []
@@ -180,94 +265,42 @@ class CFExperiment(Experiment):
             item_r_len = []
             item_c_len = []
 
-            if self.args.data_prepare == 1:
-                if items[i] in self.ui_review_dict[user[i]]:
-                    user_reviews.append(self.ui_review_dict[user[i]][items[i]])
-                    user_concepts.append(self.ui_concept_dict[user[i]][items[i]])
-                    user_r_len.append(len(self.ui_review_dict[user[i]][items[i]]))
-                    user_c_len.append(len(self.ui_concept_dict[user[i]][items[i]]))
-                for x in self.ui_review_dict[user[i]]:
-                    if not x==items[i]:
-                        user_reviews.append(self.ui_review_dict[user[i]][x])
-                        user_concepts.append(self.ui_concept_dict[user[i]][x])
-                        user_r_len.append(len(self.ui_review_dict[user[i]][x]))
-                        user_c_len.append(len(self.ui_concept_dict[user[i]][x]))
-                        if len(user_reviews) == self.args.dmax:
-                            break
-                if user[i] in self.iu_review_dict[items[i]]:
-                    item_reviews.append(self.iu_review_dict[items[i]][user[i]])
-                    item_concepts.append(self.iu_concept_dict[items[i]][user[i]])
-                    item_r_len.append(len(self.iu_review_dict[items[i]][user[i]]))
-                    item_c_len.append(len(self.iu_concept_dict[items[i]][user[i]]))
-                for x in self.iu_review_dict[items[i]]:
-                    if not x==user[i]:
-                        item_reviews.append(self.iu_review_dict[items[i]][x])
-                        item_concepts.append(self.iu_concept_dict[items[i]][x])
-                        item_r_len.append(len(self.iu_review_dict[items[i]][x]))
-                        item_c_len.append(len(self.iu_concept_dict[items[i]][x]))
-                        if len(item_reviews) == self.args.dmax:
-                            break
-                user_list.append(user_reviews)
-                item_list.append(item_reviews)
-                user_concept_list.append(user_concepts)
-                item_concept_list.append(item_concepts)
-                user_len.append(user_r_len)
-                item_len.append(item_r_len)
-                user_concept_len.append(user_c_len)
-                item_concept_len.append(item_c_len)
-            elif self.args.data_prepare == -1:
-                tmp = len(self.ui_review_dict[user[i]])
-                for x in self.ui_review_dict[user[i]]:
-                    if (not x==items[i]):
-                        user_reviews.append(self.ui_review_dict[user[i]][x])
-                        user_concepts.append(self.ui_concept_dict[user[i]][x])
-                        user_r_len.append(len(self.ui_review_dict[user[i]][x]))
-                        user_c_len.append(len(self.ui_concept_dict[user[i]][x]))
-                        if len(user_reviews) == self.args.dmax:
-                            break
-                tmp = len(self.iu_review_dict[items[i]])
-                for x in self.iu_review_dict[items[i]]:
-                    if (not x==user[i]):
-                        item_reviews.append(self.iu_review_dict[items[i]][x])
-                        item_concepts.append(self.iu_concept_dict[items[i]][x])
-                        item_r_len.append(len(self.iu_review_dict[items[i]][x]))
-                        item_c_len.append(len(self.iu_concept_dict[items[i]][x]))
-                        if len(item_reviews) == self.args.dmax:
-                            break
-                user_list.append(user_reviews)
-                item_list.append(item_reviews)
-                user_concept_list.append(user_concepts)
-                item_concept_list.append(item_concepts)
-                user_len.append(user_r_len)
-                item_len.append(item_r_len)
-                user_concept_len.append(user_c_len)
-                item_concept_len.append(item_c_len)
-            else:
-                for x in self.ui_review_dict[user[i]]:
-                    user_reviews.append(self.ui_review_dict[user[i]][x])
-                    user_concepts.append(self.ui_concept_dict[user[i]][x])
-                    user_r_len.append(len(self.ui_review_dict[user[i]][x]))
-                    user_c_len.append(len(self.ui_concept_dict[user[i]][x]))
+            #user_list改成item相关的每个user的所有评论的组合
+            #item_list保存它收到的所有评论
+            
+            #遍历商店items[i]收到的所有评论
+            for x in self.iu_review_dict[items[i]]:
+                item_reviews.append(self.iu_review_dict[items[i]][x])
+                item_concepts.append(self.iu_concept_dict[items[i]][x])
+                item_r_len.append(len(self.iu_review_dict[items[i]][x]))
+                item_c_len.append(len(self.iu_concept_dict[items[i]][x]))
+
+                if len(item_reviews) == self.args.dmax:
+                    break
+            #遍历给每间商店评论的用户，x是userid
+            for x in self.iu_review_dict[items[i]]:
+                #遍历x用户发出的评论
+                for y in self.ui_review_dict[x]:
+                    user_reviews.append(self.ui_review_dict[x][y])
+                    user_concepts.append(self.ui_concept_dict[x][y])
+                    user_r_len.append(len(self.ui_review_dict[x][y]))
+                    user_c_len.append(len(self.ui_concept_dict[x][y]))
+
                     if len(user_reviews) == self.args.dmax:
                         break
-                user_list.append(user_reviews)
-                user_concept_list.append(user_concepts)
-                for x in self.iu_review_dict[items[i]]:
-                    item_reviews.append(self.iu_review_dict[items[i]][x])
-                    item_concepts.append(self.iu_concept_dict[items[i]][x])
-                    item_r_len.append(len(self.iu_review_dict[items[i]][x]))
-                    item_c_len.append(len(self.iu_concept_dict[items[i]][x]))
-                    if len(item_reviews) == self.args.dmax:
-                        break
-                item_list.append(item_reviews)
-                item_concept_list.append(item_concepts)
-                user_len.append(user_r_len)
-                item_len.append(item_r_len)
-                user_concept_len.append(user_c_len)
-                item_concept_len.append(item_c_len)
+            user_list.append(user_reviews)
+            item_list.append(item_reviews)
+            user_concept_list.append(user_concepts)
+            item_concept_list.append(item_concepts)
+            user_len.append(user_r_len)
+            item_len.append(item_r_len)
+            user_concept_len.append(user_c_len)
+            item_concept_len.append(item_c_len)
+            
 
-        if(self.args.base_encoder!='Flat'):
-            # CAML uses hierarchical inputs
+        if(self.args.base_encoder!='Flat'):	#处理层级数据，即评论和概念，
+											#将用户和商店的评论数目长度控制为最长dmax，每条评论的长度控制为最长smax。
+											#超过长度的剪切掉，不满的补0
 
             user_concept, user_concept_len = prep_hierarchical_data_list_new(user_concept_list, user_concept_len,
                                                                                               self.args.smax,
@@ -279,7 +312,7 @@ class CFExperiment(Experiment):
             user, user_len = prep_hierarchical_data_list_new(user_list, user_len,
                                                                   self.args.smax,
                                                                   self.args.dmax)
-            items, item_len = prep_hierarchical_data_list_new(item_list, item_len,
+            items_1, item_len = prep_hierarchical_data_list_new(item_list, item_len,
                                                                    self.args.smax,
                                                                    self.args.dmax)
 
@@ -295,9 +328,8 @@ class CFExperiment(Experiment):
                                                 self.args.smax,
                                                 self.args.dmax,
                                                 add_delimiter=2)
-
-
-        output = [user, user_len, items, item_len]
+            
+        output = [user, user_len, items_1, item_len]
         self.mdl.register_index_map(0, 'q1_inputs')
         self.mdl.register_index_map(1, 'q1_len')
         self.mdl.register_index_map(2, 'q2_inputs')
@@ -312,6 +344,7 @@ class CFExperiment(Experiment):
         self.mdl.register_index_map(6, 'c2_inputs')
         self.mdl.register_index_map(7, 'c2_len')
 
+
         idx = 7
         if self.args.implicit == 1:
             output.append(user_idx)
@@ -321,8 +354,61 @@ class CFExperiment(Experiment):
             idx += 1
             self.mdl.register_index_map(idx, 'item_id')
 
-        gen_outputs = [x[3] for x in data]
-        gen_len = [x[4] for x in data]
+        #添加category
+        if self.args.category == 1:
+            output.append(category)
+            idx += 1
+            self.mdl.register_index_map(idx, 'category_id')
+
+        #添加异构信息
+        if self.args.heterougenous == 1:
+            output.append(AP)
+            idx += 1
+            self.mdl.register_index_map(idx, 'AP_id')
+
+            output.append(CD)
+            idx += 1
+            self.mdl.register_index_map(idx, 'CD_id')
+
+            output.append(Com)
+            idx += 1
+            self.mdl.register_index_map(idx, 'Com_id')
+
+            output.append(density)
+            idx += 1
+            self.mdl.register_index_map(idx, 'density_id')
+
+            output.append(Environment)
+            idx += 1
+            self.mdl.register_index_map(idx, 'Environment_id')
+
+            output.append(JQ)
+            idx += 1
+            self.mdl.register_index_map(idx, 'JQ_id')
+
+            output.append(NE)
+            idx += 1
+            self.mdl.register_index_map(idx, 'NE_id')
+
+            output.append(PP)
+            idx += 1
+            self.mdl.register_index_map(idx, 'PP_id')
+
+            output.append(Rating)
+            idx += 1
+            self.mdl.register_index_map(idx, 'Rating_id')
+
+            output.append(Service)
+            idx += 1
+            self.mdl.register_index_map(idx, 'Service_id')
+
+            output.append(Taste)
+            idx += 1
+            self.mdl.register_index_map(idx, 'Taste_id')
+			
+            output.append(TD)
+            idx += 1
+            self.mdl.register_index_map(idx, 'TD_id')
 
         output.append(gen_outputs)
         output.append(gen_len)
@@ -340,27 +426,191 @@ class CFExperiment(Experiment):
         output = []
         lines_user_id = codecs.open('%s/%s_userid.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
         lines_item_id = codecs.open('%s/%s_itemid.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
-        lines_rating = codecs.open('%s/%s_rating.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+        lines_rating = codecs.open('%s/%s_label.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
         lines_review = codecs.open('%s/%s_review_1.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
-
+        lines_category = codecs.open('%s/%s_id_category.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+        if self.args.category==1:
+            lines_category = codecs.open('%s/%s_id_category.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+        #添加异构信息
+        if self.args.heterougenous==1:
+            lines_AP = codecs.open('%s/%s_AP.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+            lines_CD = codecs.open('%s/%s_CD.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+            lines_Com = codecs.open('%s/%s_Com.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+            lines_density = codecs.open('%s/%s_density.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+            lines_Environment = codecs.open('%s/%s_Environment.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+            lines_JQ= codecs.open('%s/%s_JQ.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+            lines_NE = codecs.open('%s/%s_NE.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+            lines_PP = codecs.open('%s/%s_PP.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+            lines_Rating = codecs.open('%s/%s_Rating.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+            lines_Service = codecs.open('%s/%s_Service.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+            lines_Taste = codecs.open('%s/%s_Taste.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+            lines_TD = codecs.open('%s/%s_TD.txt' % (data_dir, dataset_type), 'rb', 'utf-8').readlines()
+        
         reviews = []
 
         concept_dict = {}
+		
+        unique_item_id = []
+        unique_item_users = {}	#保存评论商店i的所有用户编号
+        #unique_item_reviews ={}	#保存商店i的真实评论,用于old数据
+        unique_item_reviews =[]	#保存商店i的真实评论,用于new数据
+        item_label = []	#保存商店i的state
+        if self.args.category==1:
+            item_category = []	#保存商店i的category
+            unique_category = []	#保存所有不重复的商店的种类
+            
+        if self.args.heterougenous==1:
+            item_AP = []	#保存商店i的AP
+            item_CD = []	#保存商店i的CD 
+            item_Com = []	#保存商店i的Com
+            item_density = []	#保存商店i的density
+            item_Environment = []	#保存商店i的Environment
+            item_JQ = []	#保存商店i的JQ
+            item_NE = []	#保存商店i的NE 
+            item_PP = []	#保存商店i的PP
+            item_Rating = []	#保存商店i的Rating
+            item_Service = []	#保存商店i的Service
+            item_Taste = []	#保存商店i的Taste
+            item_TD = []	#保存商店i的TD
+
+            unique_AP = []	#保存所有不重复的商店的AP
+            unique_CD = []	#保存所有不重复的商店的CD
+            unique_Com = []	#保存所有不重复的商店的Com
+            unique_density = []	#保存所有不重复的商店的density保存所有不重复的商店的density
+            unique_Environment = []	#保存所有不重复的商店的density保存所有不重复的商店的Environment
+            unique_JQ = []	#保存所有不重复的商店的density保存所有不重复的商店的JQ
+            unique_NE = []	#保存所有不重复的商店的density保存所有不重复的商店的NE
+            unique_PP = []	#保存所有不重复的商店的density保存所有不重复的商店的PP
+            unique_Rating = []	#保存所有不重复的商店的density保存所有不重复的商店的Rating
+            unique_Service = []	#保存所有不重复的商店的density保存所有不重复的商店的Service
+            unique_Taste = []	#保存所有不重复的商店的density保存所有不重复的商店的Taste
+            unique_TD = []	#保存所有不重复的商店的density保存所有不重复的商店的TD
+
+
+        for i in range(len(lines_item_id)):	#找出其中不重复的itemid
+            user = int(lines_user_id[i].strip())
+            item = int(lines_item_id[i].strip())
+            label = int(lines_rating[i].strip())
+            review_1 = lines_review[i].strip('\n')
+            
+            if self.args.category==1:
+                category = int(lines_category[i].strip())
+                if category not in unique_category:	#统计category数目
+                    unique_category.append(category)
+                
+            if self.args.heterougenous==1:
+                AP = float(lines_AP[i].strip())
+                CD = float(lines_CD[i].strip())
+                Com = float(lines_Com[i].strip())
+                density = float(lines_density[i].strip())
+                Environment = float(lines_Environment[i].strip())
+                JQ = float(lines_JQ[i].strip())
+                NE = float(lines_NE[i].strip())
+                PP = float(lines_PP[i].strip())
+                Service = float(lines_Service[i].strip())
+                Rating = float(lines_Rating[i].strip())
+                Taste = float(lines_Taste[i].strip())
+                TD = float(lines_TD[i].strip())
+
+                if AP not in unique_AP:	#统计AP数目
+                    unique_AP.append(AP)
+
+                if CD not in unique_CD:	#统计CD数目
+                    unique_CD.append(CD)
+
+                if Com not in unique_Com:	#统计Com数目
+                    unique_Com.append(Com)
+
+                if density not in unique_density:	#统计density数目
+                    unique_density.append(density)
+
+                if Environment not in unique_Environment:	#统计Environment数目
+                    unique_Environment.append(Environment)
+
+                if JQ not in unique_JQ:	#统计JQ数目
+                    unique_JQ.append(JQ)
+
+                if NE not in unique_NE:	#统计NE数目
+                    unique_NE.append(NE)
+
+                if PP not in unique_PP:	#统计PP数目
+                    unique_PP.append(PP)
+
+                if Rating not in unique_Rating:	#统计Rating数目
+                    unique_Rating.append(Rating)
+
+                if Service not in unique_Service:	#统计Service数目
+                    unique_Service.append(Service)
+
+                if Taste not in unique_Taste:	#统计Taste数目
+                    unique_Taste.append(Taste)
+
+                if TD not in unique_TD:	#统计TD数目
+                    unique_TD.append(TD)
+
+            if item not in unique_item_id:
+                unique_item_id.append(item)
+                item_label.append(label)
+                unique_item_reviews.append(review_1)	#用于new数据，使用old数据时注释
+                if self.args.category==1:
+                    item_category.append(category)
+
+                if self.args.heterougenous==1:
+                    item_AP.append(AP)
+                    item_CD.append(CD)
+                    item_Com.append(Com)
+                    item_density.append(density)
+                    item_Environment.append(Environment)
+                    item_JQ.append(JQ)
+                    item_NE.append(NE)
+                    item_PP.append(PP)
+                    item_Rating.append(Rating)
+                    item_Service.append(Service)
+                    item_Taste.append(Taste)
+                    item_TD .append(TD )
+
+                #下面if else部分代码用于old数据，使用new数据时注释
+            '''if item not in unique_item_reviews:
+                unique_item_reviews[item] = lines_review[i]
+            else:
+                unique_item_reviews[item] = unique_item_reviews[item] + "\t" + lines_review[i]
+            if item not in unique_item_users:
+                unique_item_users[item] = str(user)
+            else:
+                unique_item_users[item] = unique_item_users[item] + "\t" + str(user)'''
+            
+
         for key in self.word_index:
             words = key.split(' ')
             l = len(words)
-            for i in range(l - 1):
+            #print(str(words)+' length of word:'+str(l))#中文里面，words的长度都为1.concept_dict为空
+            for i in range(l - 1):	#当words中包含的单词大于1时，将其放入到concept_dict中，并赋值为1
                 concept_dict[" ".join(words[:l - i])] = 1
-
-        for i in range(len(lines_rating)):
-            output.append([int(lines_user_id[i].strip()), int(lines_item_id[i].strip()), int(lines_rating[i].strip())])
-
+        
+        item_review_1_encode = open('item_review_1_encode.txt','w+')
+        for i in range(len(unique_item_id)):
+            if self.args.category==1 and self.args.heterougenous==1:
+                output.append([int(unique_item_id[i]), int(unique_item_id[i]), int(item_label[i]), int(item_category[i]), 
+                           float(item_AP[i]), float(item_CD[i]), float(item_Com[i]),float(item_density[i]), 
+                           float(item_Environment[i]), float(item_JQ[i]), float(item_NE[i]), float(item_PP[i]), 
+                           float(item_Rating[i]), float(item_Service[i]), float(item_Taste[i]), float(item_TD[i])])
+            elif self.args.category==1 and self.args.heterougenous==0:
+                output.append([int(unique_item_id[i]), int(unique_item_id[i]), int(item_label[i]), int(item_category[i])])
+            elif self.args.category==0 and self.args.heterougenous==1:
+                output.append([int(unique_item_id[i]), int(unique_item_id[i]), int(item_label[i]), 
+                           float(item_AP[i]), float(item_CD[i]), float(item_Com[i]),float(item_density[i]), 
+                           float(item_Environment[i]), float(item_JQ[i]), float(item_NE[i]), float(item_PP[i]), 
+                           float(item_Rating[i]), float(item_Service[i]), float(item_Taste[i]), float(item_TD[i])])
+            else:
+                output.append([int(unique_item_id[i]), int(unique_item_id[i]), int(item_label[i])])
+            
             linedata = []
-            line = lines_review[i].strip()
+            #line = unique_item_reviews[int(unique_item_id[i])].strip()	#用于old数据
+            line = unique_item_reviews[i].strip()	#用于new数据
             line = line.split('\t')
 
             linedata.append(self.word_index[EOS])
-            l = len(line) #评论文本的长度
+            l = len(line)
             pos = l
             while 1:
                 pos = pos - 1
@@ -384,9 +634,42 @@ class CFExperiment(Experiment):
                 pos = new_pos
 
             linedata.append(self.word_index[SOS])
-            linedata = linedata[::-1] 	#[::-1]表示到倒序
-
+            linedata = linedata[::-1]
+			#记录每个商店真实解释的编码
+            item_review_1_encode.write('item '+str(unique_item_id[i])+' review_1:'+str(linedata)+'\n')
             reviews.append(linedata)
+        item_review_1_encode.close()
+
+        if self.args.category==1:
+            self.num_categories = len(unique_category)
+        else:
+            self.num_categories = 0
+        if self.args.heterougenous==1:
+            self.num_AP = len(unique_AP)
+            self.num_Com = len(unique_Com)
+            self.num_CD= len(unique_CD)
+            self.num_density = len(unique_density)
+            self.num_Environment = len(unique_Environment)
+            self.num_JQ = len(unique_JQ)
+            self.num_NE = len(unique_NE)
+            self.num_TD = len(unique_TD)
+            self.num_PP = len(unique_PP)
+            self.num_Taste = len(unique_Taste)
+            self.num_Service = len(unique_Service)
+            self.num_Rating = len(unique_Rating)
+        else:
+            self.num_AP = 0
+            self.num_Com = 0
+            self.num_CD= 0
+            self.num_density = 0
+            self.num_Environment = 0
+            self.num_JQ = 0
+            self.num_NE = 0
+            self.num_TD = 0
+            self.num_PP = 0
+            self.num_Taste = 0
+            self.num_Service = 0
+            self.num_Rating = 0
 
         return output, reviews
 
@@ -450,6 +733,7 @@ class CFExperiment(Experiment):
         show_stats('{}:review num word'.format(data_type), length3)
 
         return ui_dict, iu_dict#, reviews
+        
 
     def _load_sets(self):
         # Load train, test and dev sets
@@ -492,6 +776,7 @@ class CFExperiment(Experiment):
 
     def evaluate(self, data, bsz, epoch, name="", set_type=""):
 
+        AUC = 0
         acc = 0
         num_batches = int(len(data) / bsz)
         all_preds = []
@@ -505,7 +790,7 @@ class CFExperiment(Experiment):
         dev_item_entropies = []
 
         predict_op = self.mdl.predict_op
-        actual_labels = [x[-1] for x in data]
+        actual_labels = [x[2] for x in data]
         for i in tqdm(range(num_batches+1)):
             batch = batchify(data, i, bsz, max_sample=len(data))
             if(len(batch)==0):
@@ -553,16 +838,26 @@ class CFExperiment(Experiment):
         print(Counter(_stat_al))
 
         def clip_labels(x):
-            if(x>5):
-                return 5
-            elif(x<1):
+            if(x>1):
                 return 1
+            elif(x<0):
+                return 0
             else:
                 return x
 
         all_preds = [clip_labels(x) for x in all_preds]
+		
+        with open('logs_FM.txt','a+') as log_file:
+            log_file.write('-------------------------------actual_labels------------------------------------'+'\n')
+            log_file.write(str(actual_labels)+'\n')
+            log_file.write('-------------------------------all_preds------------------------------------'+'\n')
+            log_file.write(str(all_preds)+'\n')
+            log_file.write('-------------------------------acc_preds------------------------------------'+'\n')
+            log_file.write(str(acc_preds)+'\n\n\n\n')
+		
         acc_preds = [round(x) for x in all_preds]
         acc = accuracy_score(actual_labels, acc_preds)
+        AUC = roc_auc_score(actual_labels, all_preds)
         mse = mean_squared_error(actual_labels, all_preds)
         actual_labels = [int(x) for x in actual_labels]
         all_preds = [int(x) for x in all_preds]
@@ -572,6 +867,7 @@ class CFExperiment(Experiment):
         self._register_eval_score(epoch, set_type, 'MAE', mae)
         self._register_eval_score(epoch, set_type, 'RMSE', mse ** 0.5)
         self._register_eval_score(epoch, set_type, 'ACC', acc)
+        self._register_eval_score(epoch, set_type, 'AUC', AUC)
         self._register_eval_score(epoch, set_type, 'F1', f1)
         self._register_eval_score(epoch, set_type, 'GEN_loss', np.mean(review_losses))
         self._register_eval_score(epoch, set_type, 'All_loss', np.mean(losses))
@@ -587,7 +883,11 @@ class CFExperiment(Experiment):
 
     def infer(self):
         scores = []
-
+        all_preds = []
+        AUC=0.0
+        mse=0.0
+        mae=0.0
+        
         #data = self._prepare_set(self.test_rating_set, self.test_reviews)
         data = self._combine_reviews(self.test_rating_set, self.test_reviews)
         num_batches = int(len(data) / self.args.batch_size)
@@ -599,12 +899,23 @@ class CFExperiment(Experiment):
 
         data_len = len(data)
 
+        predict_op = self.mdl.predict_op
+        actual_labels = [x[2] for x in data]
+
         gen_sentences = []
         ref_sentences = []
 
         for i in tqdm(range(0, num_batches+1)):
             batch = batchify(data, i, self.args.batch_size,
                                 max_sample=data_len)
+
+			#记录当前test数据的itemid和label
+            items = [x[1] for x in data]
+            labels = [x[2] for x in data]
+
+            item_label_file = open(self.args.gen_dir + '/item_label.txt','w+')
+            for q in range(len(items)):
+                item_label_file.write(str(items[q])+'\t'+str(labels[q])+'\n')
 
             if(len(batch)==0):
                     continue
@@ -614,14 +925,15 @@ class CFExperiment(Experiment):
             #train_op = self.mdl.train_op
             run_options = tf.RunOptions(timeout_in_ms=10000)
 
-            gen_results  = self.sess.run([self.mdl.gen_results],
+            gen_results = self.sess.run([self.mdl.gen_results],
                                                          feed_dict)
-
+            preds = self.sess.run([predict_op],
+                                              feed_dict)
             gen_results = gen_results[0]
 
             for j in range(self.args.batch_size):
                 if (self.args.batch_size * i + j)< data_len:
-
+                    
                     f = open(self.args.gen_dir + '/gen_review.'+str(self.args.batch_size * i + j)+'.txt', 'w+')
                     #for t in xrange(args.beamsize):
                     new_sentence = []
@@ -662,6 +974,42 @@ class CFExperiment(Experiment):
                     #f1.write('\n')
                     f1.close()
                     ref_sentences.append([new_sentence])
+            all_preds += [x[0] for x in preds]
+        if('SIG_MSE' in self.args.rnn_type):
+            """ Rescaling [0,1] is not supported
+            """
+            # print(all_preds)
+            def rescale(x):
+                return (x * (self.max_val - self.min_val)) + self.min_val
+            all_preds = [rescale(x) for x in all_preds]
+            actual_labels = [rescale(x) for x in actual_labels]
+
+        _stat_al = [math.ceil(x) for x in actual_labels]
+        _stat_pred = [math.ceil(x) for x in all_preds]
+
+        def clip_labels(x):
+            if(x>1):
+                return 1
+            elif(x<0):
+                return 0
+            else:
+                return x
+
+        score = corpus_bleu(ref_sentences, gen_sentences)
+        print ('bleu score: {}'.format(score))
+        
+        actual_labels_np = np.array(actual_labels)
+        all_preds_np = np.array(all_preds)
+        
+        '''print('actual_labels:'+str(actual_labels_np.shape))
+        print('all_preds:'+str(all_preds_np.shape))
+        AUC = roc_auc_score(actual_labels, all_preds)
+        mse = mean_squared_error(actual_labels, all_preds)
+        mae = mean_absolute_error(actual_labels, all_preds)
+        self._register_eval_score(epoch, set_type, 'MAE', mae)
+        self._register_eval_score(epoch, set_type, 'RMSE', mse ** 0.5)
+        self._register_eval_score(epoch, set_type, 'AUC', AUC)'''
+
 
         print ('Infer finished!')
         '''score = corpus_bleu(ref_sentences, gen_sentences)
